@@ -36,10 +36,5 @@ How it Works:
 - It will display matching suggestions in a list below the input field.
 - You can click a suggestion to complete your word.
 
-File Structure:
-.
-├── autocomplete_system.py  # Main Python script
-└── words.txt              # List of words for autocompletion
-
 License:
 This project is open source and free to use. You can modify it as per your requirements.
