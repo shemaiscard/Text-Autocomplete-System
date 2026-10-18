@@ -1,0 +1,29 @@
+word_frequencies_en.tsv
+=======================
+
+What it is: English word frequencies (occurrences per billion words) for
+the lowercase forms of the words in words.txt, taken from the "large"
+English list of wordfreq 3.1.1 and rounded to whole numbers. Built by
+tools/build_frequencies.py.
+
+Source: wordfreq by Robyn Speer, https://github.com/rspeer/wordfreq
+Citation: R. Speer, rspeer/wordfreq: v3.0, Zenodo, 2022,
+doi:10.5281/zenodo.7199437
+
+License of this file: Creative Commons Attribution-ShareAlike 4.0
+International (CC BY-SA 4.0), https://creativecommons.org/licenses/by-sa/4.0/
+The wordfreq data files are distributed under CC BY-SA 4.0, and this file
+is an adaptation of them, so it carries the same license. The rest of this
+repository keeps its MIT license.
+
+wordfreq combines several sources. Its license asks for these credits:
+- SUBTLEX (Marc Brysbaert et al.): SUBTLEX is freely available data,
+  redistributed in wordfreq with the authors' permission.
+- Google Books Ngrams, http://books.google.com/ngrams
+- OpenSubtitles (via OPUS OpenSubtitles 2018), http://www.opensubtitles.org/
+- Wikipedia, the free encyclopedia; the Leeds Internet Corpus (University of
+  Leeds Centre for Translation Studies); ParaCrawl.
+See the wordfreq README for the full list of sources and terms.
+
+Changes made: restricted to words that appear in words.txt, converted from
+proportions to counts per billion, rounded.
