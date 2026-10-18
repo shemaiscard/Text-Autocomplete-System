@@ -38,6 +38,32 @@ def load_frequencies(path=DEFAULT_FREQUENCIES):
 
 
 def base_weights(words, freqs, floor=FLOOR_WEIGHT):
-    """Corpus weight for every word; the lookup is case-insensitive."""
+    """Corpus weight for every word.
+
+    A frequency belongs to the lowercase form. A word with capitals (for
+    example "HE" or "Holmes") takes the frequency of its lowercase form only
+    when that form is not itself in the vocabulary; otherwise it gets the floor.
+    """
+    present = set(words)
     get = freqs.get
-    return {w: get(w.lower(), floor) for w in words}
+    out = {}
+    for w in words:
+        low = w.lower()
+        out[w] = get(low, floor) if (low == w or low not in present) else floor
+    return out
+
+
+def load_vocabulary(words_path=DEFAULT_WORDS, freq_path=DEFAULT_FREQUENCIES, merge=True):
+    """Return (words, weights).
+
+    merge=True (the app default) adds every word of the frequency file that
+    words.txt lacks in exactly that spelling, so common lowercase words such as
+    "of", "it" and "his", which words.txt only lists as "OF", "IT" and "HIS",
+    become completable. merge=False keeps words.txt alone.
+    """
+    words = load_words(words_path)
+    freqs = load_frequencies(freq_path)
+    if merge:
+        have = set(words)
+        words = words + sorted(w for w in freqs if w not in have)
+    return words, base_weights(words, freqs)

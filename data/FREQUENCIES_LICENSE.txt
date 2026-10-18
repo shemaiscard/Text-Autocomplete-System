@@ -1,9 +1,10 @@
 word_frequencies_en.tsv
 =======================
 
-What it is: English word frequencies (occurrences per billion words) for
-the lowercase forms of the words in words.txt, taken from the "large"
-English list of wordfreq 3.1.1 and rounded to whole numbers. Built by
+What it is: English word frequencies (occurrences per billion words) from
+the "large" English list of wordfreq 3.1.1, rounded to whole numbers: the
+lowercase forms of the words in words.txt plus every other wordfreq word
+made of the letters a-z (the app adds those to its vocabulary). Built by
 tools/build_frequencies.py.
 
 Source: wordfreq by Robyn Speer, https://github.com/rspeer/wordfreq
@@ -25,5 +26,5 @@ wordfreq combines several sources. Its license asks for these credits:
   Leeds Centre for Translation Studies); ParaCrawl.
 See the wordfreq README for the full list of sources and terms.
 
-Changes made: restricted to words that appear in words.txt, converted from
+Changes made: kept only the forms described above, converted from
 proportions to counts per billion, rounded.

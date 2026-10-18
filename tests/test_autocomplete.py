@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from autocomplete import Autocompleter, LearnedStore, RankedTrie, SortedIndex  # noqa: E402
 from autocomplete import fuzzy  # noqa: E402
-from autocomplete.data import base_weights  # noqa: E402
+from autocomplete.data import base_weights, load_vocabulary  # noqa: E402
 from autocomplete.original import Trie as OriginalTrie  # noqa: E402
 
 
@@ -92,6 +92,21 @@ class RankingTests(unittest.TestCase):
     def test_base_weights_floor_and_case(self):
         w = base_weights(["The", "cat", "zzzq"], {"the": 50, "cat": 7})
         self.assertEqual(w, {"The": 50, "cat": 7, "zzzq": 1})
+        w = base_weights(["HE", "he", "Holmes"], {"he": 900, "holmes": 40})
+        self.assertEqual(w, {"HE": 1, "he": 900, "Holmes": 40})
+
+    def test_merged_vocabulary(self):
+        with tempfile.TemporaryDirectory() as d:
+            wp, fp = os.path.join(d, "w.txt"), os.path.join(d, "f.tsv")
+            with open(wp, "w", encoding="utf-8") as f:
+                f.write("OF\ncat\n")
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write("# comment\nof\t900\ncat\t7\nweb\t3\n")
+            words, weights = load_vocabulary(wp, fp, merge=False)
+            self.assertEqual((words, weights), (["OF", "cat"], {"OF": 900, "cat": 7}))
+            words, weights = load_vocabulary(wp, fp)
+            self.assertEqual(words, ["OF", "cat", "of", "web"])
+            self.assertEqual(weights, {"OF": 1, "cat": 7, "of": 900, "web": 3})
 
 
 class LearningTests(unittest.TestCase):

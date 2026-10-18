@@ -1,21 +1,22 @@
 """What the user interface talks to: one call per keystroke, one per pick."""
+import gc
+
 from . import fuzzy
-from .data import DEFAULT_FREQUENCIES, DEFAULT_WORDS, base_weights, load_frequencies, load_words
+from .data import DEFAULT_FREQUENCIES, DEFAULT_WORDS, load_vocabulary
 from .learning import LearnedStore
 from .trie import DEFAULT_K, RankedTrie
 
 
 class Autocompleter:
     def __init__(self, words_path=DEFAULT_WORDS, freq_path=DEFAULT_FREQUENCIES,
-                 store=None, k=DEFAULT_K, words=None, weights=None):
-        if words is None:
-            words = load_words(words_path)
-        if weights is None:
-            weights = base_weights(words, load_frequencies(freq_path))
+                 store=None, k=DEFAULT_K, words=None, weights=None, merge=True):
+        if words is None or weights is None:
+            words, weights = load_vocabulary(words_path, freq_path, merge)
         self.store = store if store is not None else LearnedStore()
         self.store.apply(weights)
         self.k = k
         self.trie = RankedTrie(words, weights, k=k)
+        gc.freeze()  # the trie lives for the whole session; keep it out of GC scans
 
     def suggest(self, prefix):
         """Return (words, is_fuzzy). Fuzzy matches only when nothing completes the prefix."""
