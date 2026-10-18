@@ -80,9 +80,16 @@ def environment(repo_dir):
                                  timeout=5).stdout.strip() or None
     except (OSError, subprocess.SubprocessError):
         profile = None
+    try:
+        rustc = subprocess.run(["rustc", "--version"], capture_output=True, text=True,
+                               timeout=5).stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        rustc = None
     return {"cpu": cpu, "logical_cpus": os.cpu_count(), "mem_total_gib": mem,
             "os": platform.platform(), "python": sys.version.split()[0],
             "implementation": platform.python_implementation(),
+            "rustc": rustc,
+            "rust_profile": {"opt_level": 3, "lto": True, "codegen_units": 1},
             "governor": _read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
             "power_profile": profile, "loadavg_start": os.getloadavg(),
             "repo_commit": commit, "time": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
