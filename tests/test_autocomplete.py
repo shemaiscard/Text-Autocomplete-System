@@ -217,5 +217,44 @@ class FuzzyTests(unittest.TestCase):
             self.assertEqual(ac.suggest(""), ([], False))
 
 
+class KeystrokeSavingsTests(unittest.TestCase):
+    def test_toy_vocabulary_keystroke_counting(self):
+        from bench.keystrokes import count_keystrokes_for_word, evaluate_tokens
+        # 3-word toy vocabulary
+        words = ["apple", "application", "banana"]
+        weights = {"apple": 100, "application": 10, "banana": 50}
+        trie = RankedTrie(words, weights, k=10)
+
+        # "apple" (len 5): prefix "a" has "apple" at rank 1. Cost = 2, saved = 3.
+        stats_apple = count_keystrokes_for_word("apple", trie.suggest, ks=(1, 5))
+        self.assertEqual(stats_apple[1]["keystrokes"], 2)
+        self.assertEqual(stats_apple[1]["saved"], 3)
+        self.assertEqual(stats_apple[5]["keystrokes"], 2)
+        self.assertEqual(stats_apple[5]["saved"], 3)
+
+        # "application" (len 11):
+        # For k=1, completes at "appli" (p=5): cost = 6, saved = 5.
+        # For k=5, completes at "a" (p=1, rank 2): cost = 2, saved = 9.
+        stats_app = count_keystrokes_for_word("application", trie.suggest, ks=(1, 5))
+        self.assertEqual(stats_app[1]["keystrokes"], 6)
+        self.assertEqual(stats_app[1]["saved"], 5)
+        self.assertEqual(stats_app[5]["keystrokes"], 2)
+        self.assertEqual(stats_app[5]["saved"], 9)
+
+        # "banana" (len 6): completes at "b" (p=1): cost = 2, saved = 4.
+        stats_ban = count_keystrokes_for_word("banana", trie.suggest, ks=(1, 5))
+        self.assertEqual(stats_ban[1]["keystrokes"], 2)
+        self.assertEqual(stats_ban[1]["saved"], 4)
+
+        # Tokens: ["apple", "banana"] -> total letters 11.
+        # k=1: saved = 3 + 4 = 7. KSR = 7 / 11 = 63.64%.
+        res = evaluate_tokens(trie.suggest, ["apple", "banana"], set(words), ks=(1, 5))
+        self.assertEqual(res["total_letters"], 11)
+        self.assertEqual(res["by_k"]["1"]["letters_saved"], 7)
+        self.assertEqual(res["by_k"]["1"]["keystrokes_used"], 4)
+        self.assertAlmostEqual(res["by_k"]["1"]["ksr"], 7 / 11, places=4)
+
+
 if __name__ == "__main__":
     unittest.main()
+
