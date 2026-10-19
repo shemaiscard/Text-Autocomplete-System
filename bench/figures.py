@@ -72,7 +72,7 @@ def fig1_latency_by_prefix():
     lengths = [1, 2, 3, 4, 5, 6]
     get_med = lambda m, l: m["by_length"][str(l)]["summary"]["median"]
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.4), layout="constrained")
+    fig, ax = plt.subplots(figsize=(3.5, 3.0), layout="constrained")
 
     # Python curves (dashed / darker)
     ax.plot(lengths, [get_med(py_o["methods"]["original"], l) for l in lengths],
@@ -99,7 +99,7 @@ def fig1_latency_by_prefix():
     ax.set_ylabel("Median latency (μs, log scale)")
     ax.set_xticks(lengths)
     ax.grid(True)
-    ax.legend(ncol=2, frameon=True, loc="upper right", framealpha=0.9)
+    fig.legend(ncol=2, frameon=False, loc="outside lower center", fontsize=6.5)
 
     out_pdf = os.path.join(OUT_DIR, "fig1_latency_by_prefix.pdf")
     fig.savefig(out_pdf)
@@ -131,7 +131,7 @@ def fig2_worst_prefix_scaling():
         rs_bf.append(r["methods"]["bestfirst"]["worst"]["1"]["summary"]["median"])
         rs_topk.append(r["methods"]["topk"]["worst"]["1"]["summary"]["median"])
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.4), layout="constrained")
+    fig, ax = plt.subplots(figsize=(3.5, 3.0), layout="constrained")
 
     ax.plot(sizes_k, py_orig, label="Original (Py)", color=C_GRAY_DARK, linestyle="--", marker="x")
     ax.plot(sizes_k, rs_orig, label="Original (Rs)", color=C_GRAY_DARK, linestyle="-", marker="x")
@@ -146,7 +146,7 @@ def fig2_worst_prefix_scaling():
     ax.set_xlabel("Vocabulary size (thousands of words)")
     ax.set_ylabel("Worst-prefix latency (μs, log scale)")
     ax.grid(True)
-    ax.legend(ncol=2, frameon=True, loc="center left", framealpha=0.9)
+    fig.legend(ncol=2, frameon=False, loc="outside lower center", fontsize=6.5)
 
     out_pdf = os.path.join(OUT_DIR, "fig2_worst_prefix_scaling.pdf")
     fig.savefig(out_pdf)
@@ -155,7 +155,7 @@ def fig2_worst_prefix_scaling():
 
 
 def fig3_memory_scaling():
-    """Figure 3: Memory (peak RSS in MB) vs vocabulary size."""
+    """Figure 3: Memory added by the finished index (RSS after build minus RSS after loading the word list)."""
     sizes = [50000, 100000, 200000, 466550, 677224]
     sizes_k = [n / 1000 for n in sizes]
 
@@ -168,10 +168,11 @@ def fig3_memory_scaling():
         pr = json.load(open(os.path.join(RESULTS_DIR, f"py_ranked_{n}.json")))
         r = json.load(open(os.path.join(RESULTS_DIR, f"rs_{n}.json")))
 
-        py_sort_mem.append(ps["mem_mb"]["peak"])
-        py_orig_mem.append(po["mem_mb"]["peak"])
-        py_rank_mem.append(pr["mem_mb"]["peak"])
-        rs_mem.append(r["mem_mb"]["peak"])
+        added = lambda m, key: m["mem_mb"][key] - m["mem_mb"]["after_vocab"]
+        py_sort_mem.append(added(ps, "after_structure"))
+        py_orig_mem.append(added(po, "after_structure"))
+        py_rank_mem.append(added(pr, "after_best"))
+        rs_mem.append(added(r, "after_best"))
 
     fig, ax = plt.subplots(figsize=(3.5, 2.3), layout="constrained")
 
@@ -181,7 +182,7 @@ def fig3_memory_scaling():
     ax.plot(sizes_k, py_sort_mem, label="Sorted array (Py)", color=C_GRAY_MID, marker="d", linestyle=":")
 
     ax.set_xlabel("Vocabulary size (thousands of words)")
-    ax.set_ylabel("Peak memory RSS (MB)")
+    ax.set_ylabel("Memory added by the index (MB)")
     ax.grid(True)
     ax.legend(frameon=True, loc="upper left", framealpha=0.9)
 
@@ -192,61 +193,38 @@ def fig3_memory_scaling():
 
 
 def fig4_language_boundary():
-    """Figure 4: Python vs Rust vs Rust + JSON boundary at 677k."""
+    """Figure 4: Python, Rust and Rust plus a JSON round trip at L=1, n=677,224 (all bars measured)."""
     py_r = json.load(open(os.path.join(RESULTS_DIR, "py_ranked_677224.json")))
     py_o = json.load(open(os.path.join(RESULTS_DIR, "py_original_677224.json")))
-    py_s = json.load(open(os.path.join(RESULTS_DIR, "py_sorted_677224.json")))
     rs = json.load(open(os.path.join(RESULTS_DIR, "rs_677224.json")))
+    med = lambda d: d["summary"]["median"]
 
-    methods = [
-        "Precomputed",
-        "Best-first",
-        "Query heap",
-        "Sorted alpha",
-        "Sorted rank",
-        "Original"
-    ]
-
-    py_vals = [
-        py_r["methods"]["topk"]["by_length"]["1"]["summary"]["median"],
-        py_r["methods"]["bestfirst"]["by_length"]["1"]["summary"]["median"],
-        py_r["methods"]["heap"]["by_length"]["1"]["summary"]["median"],
-        py_s["methods"]["sorted_alpha"]["by_length"]["1"]["summary"]["median"],
-        py_s["methods"]["sorted_ranked"]["by_length"]["1"]["summary"]["median"],
-        py_o["methods"]["original"]["by_length"]["1"]["summary"]["median"],
-    ]
-
-    rs_vals = [
-        rs["methods"]["topk"]["by_length"]["1"]["summary"]["median"],
-        rs["methods"]["bestfirst"]["by_length"]["1"]["summary"]["median"],
-        rs["methods"]["heap"]["by_length"]["1"]["summary"]["median"],
-        rs["methods"]["sorted_alpha"]["by_length"]["1"]["summary"]["median"],
-        rs["methods"]["sorted_ranked"]["by_length"]["1"]["summary"]["median"],
-        rs["methods"]["original"]["by_length"]["1"]["summary"]["median"],
-    ]
-
-    # Boundary round trip for precomputed top-k in Rust
-    b_encdec = rs["boundary"]["lookup_encode_decode"]["1"]["summary"]["median"]
-    # For comparison, boundary for other methods is lookup + (encdec - raw_lookup)
-    diff = b_encdec - rs_vals[0]
-    rs_boundary_vals = [val + diff for val in rs_vals]
+    groups = ["Precomputed top-k\n(10 words)", "Original trie\n(all completions)"]
+    py_lookup = [med(py_r["methods"]["topk"]["by_length"]["1"]), med(py_o["methods"]["original"]["by_length"]["1"])]
+    py_json = [med(py_r["boundary"]["lookup_encode_decode"]["1"]), None]
+    rs_lookup = [med(rs["methods"]["topk"]["by_length"]["1"]), med(rs["methods"]["original"]["by_length"]["1"])]
+    rs_json = [med(rs["boundary"]["lookup_encode_decode"]["1"]), med(rs["boundary"]["original_lookup_encode_decode"]["1"])]
 
     import numpy as np
-    x = np.arange(len(methods))
-    width = 0.26
-
-    fig, ax = plt.subplots(figsize=(3.5, 2.5), layout="constrained")
-
-    r1 = ax.bar(x - width, py_vals, width, label="Python", color=C_GRAY_MID)
-    r2 = ax.bar(x, rs_vals, width, label="Rust (in-proc)", color=C_BLUE)
-    r3 = ax.bar(x + width, rs_boundary_vals, width, label="Rust + JSON IPC", color=C_LIGHT_BLUE)
-
+    x = np.arange(len(groups))
+    w = 0.2
+    fig, ax = plt.subplots(figsize=(3.5, 2.6), layout="constrained")
+    series = [("Python lookup", py_lookup, C_GRAY_MID), ("Python + JSON", py_json, C_GRAY_DARK),
+              ("Rust lookup", rs_lookup, C_BLUE), ("Rust + JSON", rs_json, C_LIGHT_BLUE)]
+    for i, (name, vals, color) in enumerate(series):
+        xs = [xi + (i - 1.5) * w for xi, v in zip(x, vals) if v is not None]
+        ys = [v for v in vals if v is not None]
+        ax.bar(xs, ys, w, label=name, color=color)
+        for xv, yv in zip(xs, ys):
+            ax.annotate(f"{yv:,.2f}" if yv < 10 else f"{yv:,.0f}", xy=(xv, yv), xytext=(0, 2),
+                        textcoords="offset points", ha="center", va="bottom", fontsize=5.5, rotation=90)
     ax.set_yscale("log")
-    ax.set_ylabel("Latency at L=1 (μs, log scale)")
+    ax.set_ylim(0.01, 3e5)
+    ax.set_ylabel("Median latency at L=1 (\u03bcs, log scale)")
     ax.set_xticks(x)
-    ax.set_xticklabels(methods, rotation=28, ha="right")
+    ax.set_xticklabels(groups)
     ax.grid(True, axis="y")
-    ax.legend(frameon=True, loc="upper left", framealpha=0.9)
+    fig.legend(ncol=2, frameon=False, loc="outside lower center", fontsize=6.5)
 
     out_pdf = os.path.join(OUT_DIR, "fig4_language_boundary.pdf")
     fig.savefig(out_pdf)
@@ -264,7 +242,7 @@ def fig5_keystroke_savings():
     x = np.arange(len(ks))
     width = 0.16
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.4), layout="constrained")
+    fig, ax = plt.subplots(figsize=(3.5, 2.9), layout="constrained")
 
     alpha = [conds["alphabetical_merged"]["by_k"][k]["ksr_percent"] for k in ks]
     ranked = [conds["ranked_merged"]["by_k"][k]["ksr_percent"] for k in ks]
@@ -273,7 +251,7 @@ def fig5_keystroke_savings():
     learned_w = [conds["ranked_learned_wordstxt"]["by_k"][k]["ksr_percent"] for k in ks]
 
     ax.bar(x - 2 * width, alpha, width, label="Alphabetical", color=C_GRAY_LIGHT)
-    ax.bar(x - width, ranked_w, width, label="Ranked (words.txt, OOV)", color=C_GRAY_MID)
+    ax.bar(x - width, ranked_w, width, label="Ranked (words.txt)", color=C_GRAY_MID)
     ax.bar(x, ranked, width, label="Ranked (merged)", color=C_LIGHT_BLUE)
     ax.bar(x + width, learned_w, width, label="Learned (words.txt)", color=C_GRAY_DARK)
     ax.bar(x + 2 * width, learned, width, label="Learned (merged)", color=C_BLUE)
@@ -284,7 +262,7 @@ def fig5_keystroke_savings():
     ax.set_xticklabels([f"k = {k}" for k in ks])
     ax.set_ylim(0, 42)
     ax.grid(True, axis="y")
-    ax.legend(frameon=True, loc="upper left", fontsize=6.5, framealpha=0.9)
+    fig.legend(ncol=2, frameon=False, loc="outside lower center", fontsize=6.5)
 
     out_pdf = os.path.join(OUT_DIR, "fig5_keystroke_savings.pdf")
     fig.savefig(out_pdf)
@@ -293,9 +271,9 @@ def fig5_keystroke_savings():
 
 
 def fig6_typo_recovery():
-    """Figure 6: Typo recovery by top-k and distance metric."""
+    """Figure 6: Correction found in the top k, on the misspellings the app sends to fuzzy search (no word completes them)."""
     typo = json.load(open(os.path.join(RESULTS_DIR, "rs_typo_677224.json")))
-    rows = [r for r in typo["rows"] if r["corr_in_vocab"]]
+    rows = [r for r in typo["rows"] if r["corr_in_vocab"] and not r["has_completions"]]
     n = len(rows)
 
     ks = [1, 5, 10]
@@ -305,28 +283,20 @@ def fig6_typo_recovery():
     import numpy as np
     x = np.arange(len(ks))
     width = 0.35
-
-    fig, ax = plt.subplots(figsize=(3.5, 2.3), layout="constrained")
-
-    bars1 = ax.bar(x - width / 2, lev_pct, width, label="Levenshtein (edit dist ≤ 2)", color=C_GRAY_MID)
-    bars2 = ax.bar(x + width / 2, osa_pct, width, label="OSA (+ transpositions)", color=C_BLUE)
-
-    for b in bars1:
+    fig, ax = plt.subplots(figsize=(3.5, 2.5), layout="constrained")
+    bars1 = ax.bar(x - width / 2, lev_pct, width, label="Levenshtein", color=C_GRAY_MID)
+    bars2 = ax.bar(x + width / 2, osa_pct, width, label="Levenshtein + adjacent swaps", color=C_BLUE)
+    for b in list(bars1) + list(bars2):
         y = b.get_height()
         ax.annotate(f"{y:.1f}%", xy=(b.get_x() + b.get_width() / 2, y),
                     xytext=(0, 2), textcoords="offset points", ha="center", va="bottom", fontsize=6.5)
-    for b in bars2:
-        y = b.get_height()
-        ax.annotate(f"{y:.1f}%", xy=(b.get_x() + b.get_width() / 2, y),
-                    xytext=(0, 2), textcoords="offset points", ha="center", va="bottom", fontsize=6.5)
-
-    ax.set_xlabel("Target ranking threshold")
-    ax.set_ylabel("Correction recovery rate (%)")
+    ax.set_xlabel(f"Correction among the top k suggestions ({n:,} misspellings)")
+    ax.set_ylabel("Misspellings recovered (%)")
     ax.set_xticks(x)
-    ax.set_xticklabels(["Top 1", "Top 5", "Top 10"])
-    ax.set_ylim(0, 110)
+    ax.set_xticklabels(["k = 1", "k = 5", "k = 10"])
+    ax.set_ylim(0, 112)
     ax.grid(True, axis="y")
-    ax.legend(frameon=True, loc="lower right", framealpha=0.9)
+    fig.legend(ncol=2, frameon=False, loc="outside lower center", fontsize=6.5)
 
     out_pdf = os.path.join(OUT_DIR, "fig6_typo_recovery.pdf")
     fig.savefig(out_pdf)
