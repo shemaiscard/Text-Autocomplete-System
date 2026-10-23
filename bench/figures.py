@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 BASE_DIR = os.path.dirname(REPO)
-RESULTS_DIR = os.path.join(BASE_DIR, "results")
+RESULTS_DIR = os.environ.get("AC_RESULTS", os.path.join(BASE_DIR, "results"))
 OUT_DIR = os.path.join(RESULTS_DIR, "figures")
 PAPER_FIG_DIR = os.path.expanduser("~/Documents/papers/latex/06_Text_Autocomplete_System/figures")
 
